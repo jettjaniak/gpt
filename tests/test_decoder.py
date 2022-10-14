@@ -3,26 +3,39 @@ import pytest
 import itertools
 
 from gpt.decoder import Decoder
+from tests import utils
 
 
 @pytest.mark.parametrize(
-    "n_mlp_layers, n_heads, seq_len, d_embed, d_key, d_batch",
-    itertools.product([1, 3], repeat=6),
+    "n_heads, n_ctx, d_model, d_head",
+    itertools.product([1, 3], repeat=4),
 )
-def test_decoder(
-    n_mlp_layers: int,
+def test_decoder_batch_eq(
     n_heads: int,
-    seq_len: int,
-    d_embed: int,
-    d_key: int,
-    d_batch: int,
+    n_ctx: int,
+    d_model: int,
+    d_head: int,
 ):
-    decoder = Decoder(
-        n_mlp_layers=n_mlp_layers,
-        n_heads=n_heads,
-        seq_len=seq_len,
-        d_embed=d_embed,
-        d_key=d_key,
-    )
-    embed = torch.rand(d_batch, seq_len, d_embed)
-    decoder(embed)
+    """Does the same input data in batch dimension result in the same output?"""
+    decoder = Decoder(n_heads=n_heads, n_ctx=n_ctx, d_model=d_model, d_head=d_head)
+    embed, mask = utils.random_embed_mask_equal_batch(n_ctx, d_model)
+    decoder_out_no_mask = decoder(embed)
+    assert torch.allclose(decoder_out_no_mask[0], decoder_out_no_mask[1])
+    decoder_out_with_mask = decoder(embed, mask)
+    assert torch.allclose(decoder_out_with_mask[0], decoder_out_with_mask[1])
+
+
+@pytest.mark.parametrize("n_heads, n_ctx, d_model, d_head, batch_size", itertools.product(range(1, 4), repeat=5))
+def test_decoder_backward(n_heads, n_ctx, d_model, d_head, batch_size):
+    decoder = Decoder(n_heads=n_heads, n_ctx=n_ctx, d_model=d_model, d_head=d_head)
+    embed = torch.rand(batch_size, n_ctx, d_model)
+    mask = utils.random_mask(batch_size, n_ctx)
+    target = torch.rand(batch_size, n_ctx, d_model)
+
+    output_with_mask = decoder(embed, mask)
+    loss_with_mask = torch.mean((output_with_mask - target) ** 2)
+    loss_with_mask.backward()
+
+    output_no_mask = decoder(embed, None)
+    loss_no_mask = torch.mean((output_no_mask - target) ** 2)
+    loss_no_mask.backward()

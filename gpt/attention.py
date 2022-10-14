@@ -2,79 +2,70 @@ import torch
 from torch import nn
 from torchtyping import TensorType, patch_typeguard
 from typeguard import typechecked
-from typing import Tuple
+from typing import Tuple, Optional
+
+from gpt.linear_normal import LinearNormal
 
 patch_typeguard()
 
-KeyTensor = TensorType["batch", "seq", "key"]
-EmbedTensor = TensorType["batch", "seq", "embed"]
-
-# TODO: use squeeze
+HeadTensor = TensorType["batch", "ctx", "head", torch.float32]
+ModelTensor = TensorType["batch", "ctx", "model", torch.float32]
+MaskTensor = TensorType["batch", "ctx", "ctx", torch.bool]
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, n_heads: int, d_embed: int, d_key: int):
+    def __init__(self, n_heads: int, d_model: int, d_head: int):
         super().__init__()
-        self.heads = nn.ModuleList([Attention(d_embed, d_key) for _ in range(n_heads)])
-        self.w_o = nn.Parameter(torch.normal(mean=0, std=0.02, size=(d_embed, n_heads * d_key)))
+        self.heads = nn.ModuleList([Attention(d_model, d_head) for _ in range(n_heads)])
+        self.w_o = LinearNormal(n_heads * d_head, d_model, bias=False)
 
     @typechecked
-    def forward(self, embed: EmbedTensor) -> EmbedTensor:
-        # it's sequential, we could parallelize it by adding "head" dimension to Attention instead
-        # [(batch, seq, key), ...] -> (batch, seq, heads * key)
-        heads_out = torch.cat([head(embed) for head in self.heads], dim=2)
-        # -> (batch, seq, heads * key, 1)
-        heads_out_ = heads_out.view(*heads_out.size(), 1)
-        # (embed, heads * key) @  (batch, seq, heads * key, 1) -> (batch, seq, embed, 1)
-        ret_4dim = self.w_o @ heads_out_
-        # -> (batch, seq, embed)
-        return ret_4dim.view(*ret_4dim.size()[:-1])
+    def forward(self, embed: ModelTensor, mask: Optional[MaskTensor]) -> ModelTensor:
+        # it's sequential, we could parallelize it by adding a dimension to Attention instead
+        # [(batch, ctx, head), ...] -> (batch, ctx, n_heads * head)
+        heads_out = torch.cat([head(embed, mask) for head in self.heads], dim=2)
+        # -> (batch, ctx, model)
+        return self.w_o(heads_out)
 
 
 # TODO: masking?
 class Attention(nn.Module):
-    def __init__(self, d_embed: int, d_key: int):
+    """Single attention head"""
+
+    def __init__(self, d_model: int, d_head: int):
         super().__init__()
         # Weights for Key, Query and Value
-        self.w_k = nn.Parameter(torch.normal(mean=0, std=0.02, size=(d_key, d_embed)))
-        self.w_q = nn.Parameter(torch.normal(mean=0, std=0.02, size=(d_key, d_embed)))
-        self.w_v = nn.Parameter(torch.normal(mean=0, std=0.02, size=(d_key, d_embed)))
-        self.norm = d_key**0.5
-
-    @staticmethod
-    @typechecked
-    def _compute_k_or_q_or_v(
-        weights: TensorType["key", "embed"],
-        embed_: TensorType["batch", "seq", "embed", 1],
-    ) -> KeyTensor:
-        # (key, embed) @ (batch, seq, embed, 1) -> (batch, seq, key, 1)
-        ret_4dim = weights @ embed_
-        # -> (batch, seq, key)
-        return ret_4dim.view(ret_4dim.size()[:-1])
+        self.w_k = LinearNormal(d_model, d_head, bias=False)
+        self.w_q = LinearNormal(d_model, d_head, bias=False)
+        self.w_v = LinearNormal(d_model, d_head, bias=False)
+        self.norm = d_head**0.5
 
     @typechecked
-    def compute_kqv(self, embed: EmbedTensor) -> Tuple[KeyTensor, KeyTensor, KeyTensor]:
-        embed_ = embed.view(*embed.size(), 1)
+    def compute_kqv(self, embed: ModelTensor) -> Tuple[HeadTensor, HeadTensor, HeadTensor]:
         return (
-            self._compute_k_or_q_or_v(self.w_k, embed_),
-            self._compute_k_or_q_or_v(self.w_q, embed_),
-            self._compute_k_or_q_or_v(self.w_v, embed_),
+            self.w_k(embed),
+            self.w_q(embed),
+            self.w_v(embed),
         )
 
     @typechecked
-    def compute_prob(self, q: KeyTensor, k: KeyTensor) -> TensorType["batch", "seq", "seq"]:
-        # (batch, seq, key) -> (batch, key, seq)
+    def compute_prob(
+        self, q: HeadTensor, k: HeadTensor, mask: Optional[MaskTensor]
+    ) -> TensorType["batch", "ctx", "ctx"]:
+        # (batch, ctx, head) -> (batch, head, ctx)
         k_t = torch.transpose(k, dim0=1, dim1=2)
-        # (batch, seq, key), (batch, key, seq) -> (batch, seq, seq)
+        # (batch, ctx, head), (batch, head, ctx) -> (batch, ctx, ctx)
         logits = (q @ k_t) / self.norm
-        # keeps the (batch, seq, seq) size, sum along last dim is 1
+        if mask is not None:
+            logits[~mask] = -float("inf")
+        # keeps the (batch, ctx, ctx) size, sum along last dim is 1
         return torch.softmax(logits, dim=2)
 
     @typechecked
-    def forward(self, embed: EmbedTensor) -> KeyTensor:
+    def forward(self, embed: ModelTensor, mask: Optional[MaskTensor]) -> HeadTensor:
         k, q, v = self.compute_kqv(embed)
-        prob = self.compute_prob(q, k)
-        # (batch, seq, seq) @ (batch, seq, key) -> (batch, seq, key)
+        prob = self.compute_prob(q, k, mask)
+        # (batch, ctx, ctx) @ (batch, ctx, head) -> (batch, ctx, head)
         # each row in prob is a distribution over seq tokens, and each column of v corresponds to one token
-        # we are weighting and summing values them
+        # we are weighting and summing values
         return prob @ v
