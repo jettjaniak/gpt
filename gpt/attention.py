@@ -1,15 +1,10 @@
 import torch
 from torch import nn
 from torchtyping import TensorType
-from typing import Tuple, Optional
+from typing import Optional
 
 from gpt.linear_normal import LinearNormal
-
-
-# TODO: move to typing
-HeadTensor = TensorType["batch", "ctx", "head", torch.float32]
-ModelTensor = TensorType["batch", "ctx", "model", torch.float32]
-MaskTensor = TensorType["batch", "ctx", "ctx", torch.bool]
+from gpt.types import ModelTensor, MaskTensor, HeadTensor
 
 
 class MultiHeadAttention(nn.Module):

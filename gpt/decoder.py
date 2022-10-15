@@ -1,8 +1,9 @@
 from torch import nn
 from typing import Optional
 
-from gpt.attention import MultiHeadAttention, ModelTensor, MaskTensor
+from gpt.attention import MultiHeadAttention
 from gpt.linear_normal import LinearNormal
+from gpt.types import ModelTensor, MaskTensor
 
 # TODO: import linting
 

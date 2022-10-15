@@ -8,7 +8,7 @@ from tests import utils
 
 @pytest.mark.parametrize(
     "n_heads, n_ctx, d_model, d_head",
-    itertools.product([1, 3], repeat=4),
+    itertools.product([1, 5], repeat=4),
 )
 def test_decoder_batch_eq(
     n_heads: int,
@@ -26,8 +26,9 @@ def test_decoder_batch_eq(
     assert torch.allclose(decoder_out_with_mask[0], decoder_out_with_mask[1])
 
 
-@pytest.mark.parametrize("n_heads, n_ctx, d_model, d_head, batch_size", itertools.product(range(1, 4), repeat=5))
-def test_decoder_backward(n_heads, n_ctx, d_model, d_head, batch_size):
+@pytest.mark.parametrize("n_heads, n_ctx, d_model, d_head, batch_size", itertools.product([1, 5], repeat=5))
+def test_decoder_backward(n_heads: int, n_ctx: int, d_model: int, d_head: int, batch_size: int):
+    """Does gradient compute without an exception?"""
     decoder = Decoder(n_heads=n_heads, n_ctx=n_ctx, d_model=d_model, d_head=d_head, dropout_p=0.1)
     decoder.train()
     embed = torch.rand(batch_size, n_ctx, d_model)
@@ -44,6 +45,7 @@ def test_decoder_backward(n_heads, n_ctx, d_model, d_head, batch_size):
 
 
 def test_decoder_types_checked():
+    """Is torchtyping + typeguard actually running in tests?"""
     n_ctx = 3
     d_model = 6
     decoder = Decoder(n_heads=2, n_ctx=n_ctx, d_model=d_model, d_head=3, dropout_p=0.1)

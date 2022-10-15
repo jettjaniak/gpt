@@ -3,8 +3,8 @@ from torch import nn
 from torchtyping import TensorType
 
 from gpt.decoder import Decoder
-from gpt.attention import ModelTensor, MaskTensor
 from gpt.linear_normal import LinearNormal
+from gpt.types import ModelTensor, MaskTensor
 
 
 class TransformerLM(nn.Module):

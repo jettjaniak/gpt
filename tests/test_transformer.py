@@ -8,7 +8,7 @@ from tests import utils
 
 @pytest.mark.parametrize(
     "vocab_size, n_layers, n_heads, n_ctx, d_model, d_head",
-    itertools.product([1, 3], repeat=6),
+    itertools.product([1, 5], repeat=6),
 )
 def test_transformer_batch_eq(
     vocab_size: int,
@@ -40,6 +40,7 @@ def test_transformer_batch_eq(
 def test_transformer_backward(
     vocab_size: int, n_layers: int, n_heads: int, n_ctx: int, d_model: int, d_head: int, batch_size: int
 ):
+    """Does gradient compute without an exception?"""
     transformer = Transformer(
         vocab_size=vocab_size,
         n_layers=n_layers,
@@ -60,6 +61,7 @@ def test_transformer_backward(
 
 
 def test_transformer_types_checked():
+    """Is torchtyping + typeguard actually running in tests?"""
     n_ctx = 3
     d_model = 6
     transformer = Transformer(
