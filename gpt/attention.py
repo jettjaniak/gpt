@@ -40,31 +40,25 @@ class Attention(nn.Module):
         self.norm = d_head**0.5
         self.softmax_dropout = nn.Dropout(p=dropout_p)
 
-    # TODO: remove
-    def compute_kqv(self, embed: ModelTensor) -> Tuple[HeadTensor, HeadTensor, HeadTensor]:
-        return (
-            self.w_k(embed),
-            self.w_q(embed),
-            self.w_v(embed),
-        )
-
-    def compute_prob(
-        self, q: HeadTensor, k: HeadTensor, mask: Optional[MaskTensor]
-    ) -> TensorType["batch", "ctx", "ctx"]:
-        # (batch, ctx, head) -> (batch, head, ctx)
-        k_t = torch.transpose(k, dim0=1, dim1=2)
-        # (batch, ctx, head), (batch, head, ctx) -> (batch, ctx, ctx)
-        logits = (q @ k_t) / self.norm
-        if mask is not None:
-            logits[~mask] = -float("inf")
-        # keeps the (batch, ctx, ctx) size, sum along last dim is 1
-        softmax_out = torch.softmax(logits, dim=2)
-        return self.softmax_dropout(softmax_out)
-
     def forward(self, embed: ModelTensor, mask: Optional[MaskTensor]) -> HeadTensor:
-        k, q, v = self.compute_kqv(embed)
-        prob = self.compute_prob(q, k, mask)
+        k = self.w_k(embed)
+        q = self.w_q(embed)
+        v = self.w_v(embed)
+        softmax = self.softmax_dropout(compute_attention_softmax(q, k, self.norm, mask))
         # (batch, ctx, ctx) @ (batch, ctx, head) -> (batch, ctx, head)
         # each row in prob is a distribution over seq tokens, and each column of v corresponds to one token
         # we are weighting and summing values
-        return prob @ v
+        return softmax @ v
+
+
+def compute_attention_softmax(
+    q: HeadTensor, k: HeadTensor, norm: float, mask: Optional[MaskTensor]
+) -> TensorType["batch", "ctx", "ctx"]:
+    # (batch, ctx, head) -> (batch, head, ctx)
+    k_t = torch.transpose(k, dim0=1, dim1=2)
+    # (batch, ctx, head), (batch, head, ctx) -> (batch, ctx, ctx)
+    logits = (q @ k_t) / norm
+    if mask is not None:
+        logits[~mask] = -float("inf")
+    # keeps the (batch, ctx, ctx) size, sum along last dim is 1
+    return torch.softmax(logits, dim=2)

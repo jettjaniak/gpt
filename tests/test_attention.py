@@ -1,8 +1,9 @@
 import torch
 import pytest
 import itertools
+import math
 
-from gpt.attention import Attention
+from gpt.attention import Attention, compute_attention_softmax
 from tests import utils
 
 # TODO: multi-head tests
@@ -42,3 +43,10 @@ def test_attention_types_checked():
     attn = Attention(d_model=2, d_head=2, dropout_p=0.1)
     with pytest.raises(TypeError):
         attn(torch.rand(2, 2), mask=None)  # no batch dim
+
+
+def test_compute_attention_softmax():
+    q = torch.tensor([[0.0, 1.0], [1.0, 0.0]]).unsqueeze(dim=0)
+    k = torch.tensor([[1.0, 0.0], [0.0, 1.0]]).unsqueeze(dim=0)
+    softmax = torch.tensor([[1 / (math.e + 1), math.e / (math.e + 1)], [math.e / (math.e + 1), 1 / (math.e + 1)]])
+    assert torch.allclose(compute_attention_softmax(q, k, norm=1, mask=None), softmax)
