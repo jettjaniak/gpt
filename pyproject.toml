@@ -1,2 +1,5 @@
 [tool.black]
 line-length = 120
+
+[tool.pytest.ini_options]
+addopts = "--torchtyping-patch-typeguard --typeguard-packages=gpt.attention,gpt.decoder,gpt.linear_normal,gpt.transformer"

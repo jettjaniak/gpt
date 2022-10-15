@@ -36,3 +36,9 @@ def test_attention_backward(n_ctx, d_model, d_head, batch_size):
     output_no_mask = attn(embed, None)
     loss_no_mask = torch.mean((output_no_mask - target) ** 2)
     loss_no_mask.backward()
+
+
+def test_attention_types_checked():
+    attn = Attention(d_model=2, d_head=2, dropout_p=0.1)
+    with pytest.raises(TypeError):
+        attn(torch.rand(2, 2), mask=None)  # no batch dim

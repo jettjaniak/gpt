@@ -41,3 +41,11 @@ def test_decoder_backward(n_heads, n_ctx, d_model, d_head, batch_size):
     output_no_mask = decoder(embed, None)
     loss_no_mask = torch.mean((output_no_mask - target) ** 2)
     loss_no_mask.backward()
+
+
+def test_decoder_types_checked():
+    n_ctx = 3
+    d_model = 6
+    decoder = Decoder(n_heads=2, n_ctx=n_ctx, d_model=d_model, d_head=3, dropout_p=0.1)
+    with pytest.raises(TypeError):
+        decoder(torch.rand(n_ctx, d_model))  # no batch dim

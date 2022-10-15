@@ -1,13 +1,8 @@
-import torch
 from torch import nn
-from torchtyping import TensorType, patch_typeguard
-from typeguard import typechecked
-
-patch_typeguard()
 
 
 class LinearNormal(nn.Linear):
-    """N(0, 0.02) weight initialization, bias default (if used)"""
+    """N(0, 0.02) weight initialization, default bias initialization (if used)"""
 
     def __init__(self, in_features: int, out_features: int, bias: bool, **kwargs):
         super().__init__(in_features=in_features, out_features=out_features, bias=bias, **kwargs)

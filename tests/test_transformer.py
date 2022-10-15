@@ -57,3 +57,19 @@ def test_transformer_backward(
     output = transformer(embed, mask)
     loss = torch.mean((output - target) ** 2)
     loss.backward()
+
+
+def test_transformer_types_checked():
+    n_ctx = 3
+    d_model = 6
+    transformer = Transformer(
+        vocab_size=5,
+        n_layers=2,
+        n_heads=2,
+        n_ctx=n_ctx,
+        d_model=d_model,
+        d_head=3,
+        dropout_p=0.1,
+    )
+    with pytest.raises(TypeError):
+        transformer(torch.rand(n_ctx, d_model))  # no batch dim

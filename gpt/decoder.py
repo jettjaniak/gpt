@@ -1,16 +1,18 @@
-import torch
 from torch import nn
-from torchtyping import patch_typeguard
-from typeguard import typechecked
 from typing import Optional
 
 from gpt.attention import MultiHeadAttention, ModelTensor, MaskTensor
 from gpt.linear_normal import LinearNormal
 
-patch_typeguard()
+# TODO: import linting
 
 
 class Decoder(nn.Module):
+    """Multi-head attention, position-wise feed-forward and residual connections.
+
+    FF with single hidden layer. Residuals with dropout and layer norm.
+    """
+
     def __init__(self, n_heads: int, n_ctx: int, d_model: int, d_head: int, dropout_p: float):
         super().__init__()
         self.attn = MultiHeadAttention(n_heads, d_model, d_head, dropout_p)
@@ -22,7 +24,6 @@ class Decoder(nn.Module):
         self.layer_norm_mlp = nn.LayerNorm([n_ctx, d_model])
         self.residual_dropout = nn.Dropout(p=dropout_p)
 
-    @typechecked
     def forward(self, embed: ModelTensor, mask: Optional[MaskTensor] = None) -> ModelTensor:
         attn_out = self.attn(embed, mask)
         add_norm_attn_out = self.layer_norm_attn(attn_out + self.residual_dropout(embed))
