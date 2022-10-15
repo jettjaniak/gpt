@@ -12,7 +12,8 @@ from tests import utils
 @pytest.mark.parametrize("n_ctx, d_model, d_head", itertools.product(range(1, 4), repeat=3))
 def test_attention_batch_eq(n_ctx, d_model, d_head):
     """Does the same input data in batch dimension result in the same output?"""
-    attn = Attention(d_model=d_model, d_head=d_head)
+    attn = Attention(d_model=d_model, d_head=d_head, dropout_p=0.1)
+    attn.eval()
     embed, mask = utils.random_embed_mask_equal_batch(n_ctx, d_model)
     attn_out_with_mask = attn(embed, mask)
     assert torch.allclose(attn_out_with_mask[0], attn_out_with_mask[1])
@@ -22,7 +23,8 @@ def test_attention_batch_eq(n_ctx, d_model, d_head):
 
 @pytest.mark.parametrize("n_ctx, d_model, d_head, batch_size", itertools.product(range(1, 4), repeat=4))
 def test_attention_backward(n_ctx, d_model, d_head, batch_size):
-    attn = Attention(d_model=d_model, d_head=d_head)
+    attn = Attention(d_model=d_model, d_head=d_head, dropout_p=0.1)
+    attn.train()
     embed = torch.rand(batch_size, n_ctx, d_model)
     mask = utils.random_mask(batch_size, n_ctx)
     target = torch.rand(batch_size, n_ctx, d_head)

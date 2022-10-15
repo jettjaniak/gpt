@@ -14,9 +14,9 @@ MaskTensor = TensorType["batch", "ctx", "ctx", torch.bool]
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, n_heads: int, d_model: int, d_head: int):
+    def __init__(self, n_heads: int, d_model: int, d_head: int, dropout_p: float):
         super().__init__()
-        self.heads = nn.ModuleList([Attention(d_model, d_head) for _ in range(n_heads)])
+        self.heads = nn.ModuleList([Attention(d_model, d_head, dropout_p) for _ in range(n_heads)])
         self.w_o = LinearNormal(n_heads * d_head, d_model, bias=False)
 
     @typechecked
@@ -32,13 +32,14 @@ class MultiHeadAttention(nn.Module):
 class Attention(nn.Module):
     """Single attention head"""
 
-    def __init__(self, d_model: int, d_head: int):
+    def __init__(self, d_model: int, d_head: int, dropout_p: float):
         super().__init__()
         # Weights for Key, Query and Value
         self.w_k = LinearNormal(d_model, d_head, bias=False)
         self.w_q = LinearNormal(d_model, d_head, bias=False)
         self.w_v = LinearNormal(d_model, d_head, bias=False)
         self.norm = d_head**0.5
+        self.softmax_dropout = nn.Dropout(p=dropout_p)
 
     @typechecked
     def compute_kqv(self, embed: ModelTensor) -> Tuple[HeadTensor, HeadTensor, HeadTensor]:
@@ -59,7 +60,8 @@ class Attention(nn.Module):
         if mask is not None:
             logits[~mask] = -float("inf")
         # keeps the (batch, ctx, ctx) size, sum along last dim is 1
-        return torch.softmax(logits, dim=2)
+        softmax_out = torch.softmax(logits, dim=2)
+        return self.softmax_dropout(softmax_out)
 
     @typechecked
     def forward(self, embed: ModelTensor, mask: Optional[MaskTensor]) -> HeadTensor:

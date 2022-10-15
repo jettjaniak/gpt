@@ -17,7 +17,8 @@ def test_decoder_batch_eq(
     d_head: int,
 ):
     """Does the same input data in batch dimension result in the same output?"""
-    decoder = Decoder(n_heads=n_heads, n_ctx=n_ctx, d_model=d_model, d_head=d_head)
+    decoder = Decoder(n_heads=n_heads, n_ctx=n_ctx, d_model=d_model, d_head=d_head, dropout_p=0.1)
+    decoder.eval()
     embed, mask = utils.random_embed_mask_equal_batch(n_ctx, d_model)
     decoder_out_no_mask = decoder(embed)
     assert torch.allclose(decoder_out_no_mask[0], decoder_out_no_mask[1])
@@ -27,7 +28,8 @@ def test_decoder_batch_eq(
 
 @pytest.mark.parametrize("n_heads, n_ctx, d_model, d_head, batch_size", itertools.product(range(1, 4), repeat=5))
 def test_decoder_backward(n_heads, n_ctx, d_model, d_head, batch_size):
-    decoder = Decoder(n_heads=n_heads, n_ctx=n_ctx, d_model=d_model, d_head=d_head)
+    decoder = Decoder(n_heads=n_heads, n_ctx=n_ctx, d_model=d_model, d_head=d_head, dropout_p=0.1)
+    decoder.train()
     embed = torch.rand(batch_size, n_ctx, d_model)
     mask = utils.random_mask(batch_size, n_ctx)
     target = torch.rand(batch_size, n_ctx, d_model)
