@@ -52,7 +52,7 @@ def test_compute_attention_softmax():
     q = torch.tensor([[0.0, 1.0], [1.0, 0.0]]).unsqueeze(dim=0)
     k = torch.tensor([[1.0, 0.0], [0.0, 1.0]]).unsqueeze(dim=0)
     softmax = torch.tensor([[1 / (math.e + 1), math.e / (math.e + 1)], [math.e / (math.e + 1), 1 / (math.e + 1)]])
-    assert torch.allclose(compute_attention_softmax(q, k, norm=1, mask=None), softmax)
+    assert torch.allclose(compute_attention_softmax(q, k, norm=1, full_mask=None), softmax)
 
 
 # multi-head attention

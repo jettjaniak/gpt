@@ -1,11 +1,8 @@
 from torch import nn
-from typing import Optional
 
 from gpt.attention import MultiHeadAttention
 from gpt.linear_normal import LinearNormal
-from gpt.types import ModelTensor, MaskTensor
-
-# TODO: import linting
+from gpt.types import ModelTensor, PadMaskTensor
 
 
 class Decoder(nn.Module):
@@ -25,8 +22,8 @@ class Decoder(nn.Module):
         self.layer_norm_mlp = nn.LayerNorm([n_ctx, d_model])
         self.residual_dropout = nn.Dropout(p=dropout_p)
 
-    def forward(self, embed: ModelTensor, mask: Optional[MaskTensor] = None) -> ModelTensor:
-        attn_out = self.attn(embed, mask)
+    def forward(self, embed: ModelTensor, pad_mask: PadMaskTensor) -> ModelTensor:
+        attn_out = self.attn(embed, pad_mask)
         add_norm_attn_out = self.layer_norm_attn(attn_out + self.residual_dropout(embed))
         mlp_out = self.ff(add_norm_attn_out)
         return self.layer_norm_mlp(mlp_out + self.residual_dropout(add_norm_attn_out))

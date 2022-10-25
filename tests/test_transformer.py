@@ -2,8 +2,37 @@ import torch
 import pytest
 import itertools
 
-from gpt.transformer import Transformer
+from gpt.transformer import Transformer, TransformerLM
 from tests import utils
+
+
+# TODO
+@pytest.mark.parametrize(
+    "n_layers, n_heads, n_ctx, d_model, d_head",
+    itertools.product([1, 5], repeat=5),
+)
+def test_transformer_lm_batch_eq(
+    n_layers: int,
+    n_heads: int,
+    n_ctx: int,
+    d_model: int,
+    d_head: int,
+):
+    """Does the same input data in batch dimension result in the same output?"""
+    vocab_size = 10
+    transformer = TransformerLM(
+        vocab_size=vocab_size,
+        n_layers=n_layers,
+        n_heads=n_heads,
+        n_ctx=n_ctx,
+        d_model=d_model,
+        d_head=d_head,
+        dropout_p=0.1,
+    )
+    transformer.eval()
+    ctx = torch.randint()
+    transformer_out = transformer(embed, mask)
+    assert torch.allclose(transformer_out[0], transformer_out[1])
 
 
 @pytest.mark.parametrize(
